@@ -1,0 +1,87 @@
+name: Build → Test → Deploy pipeline
+
+# You can adjust triggers as needed.
+# This example runs on pushes to main + pull requests + manual trigger
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:          # allows manual trigger from GitHub UI
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest     # alpine is not officially supported → ubuntu is most common & fastest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build something
+        run: echo "This job builds something."
+
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [build]             # ← waits for build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test the build
+        run: echo "This job tests the build else."
+
+
+  deploy-dev:
+    runs-on: ubuntu-latest
+    needs: [test]              # ← waits for test
+    # You can add: if: github.ref == 'refs/heads/main'   (only on main)
+    environment: dev           # optional – enables env variables + protection rules
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Dev
+        run: echo "The job deploys to dev"
+
+
+  deploy-qa:
+    runs-on: ubuntu-latest
+    needs: [deploy-dev]
+    environment: qa
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to QA
+        run: echo "This job deploys to qa"
+
+
+  # GitHub has no built-in "manual job inside automatic pipeline"
+  # using environment + required reviewers
+  deploy-stg-after-signoff:
+    runs-on: ubuntu-latest
+    needs: [deploy-qa]
+    environment:
+      name: stg
+      # Optional: add protection rules in repo Settings → Environments → stg
+      # → Required reviewers (1–2 people/teams must approve before this job runs)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging (after manual approval)
+        run: echo "This job deploys to stg"
+
+
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: [deploy-stg-after-signoff]
+    environment:
+      name: production
+      # Strongly recommended: add required reviewers + wait timer here
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Production
+        run: echo "This job deploys to prod"
